@@ -25,3 +25,5 @@ async def album_handler(messages: List[types.Message]):
     for message in messages:
         print(message)
 ```
+
+Checkout [echo-bot](./examples/echo.py) for complete usage example 
