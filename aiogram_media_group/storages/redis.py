@@ -58,3 +58,10 @@ class RedisStorage(BaseStorage):
         messages.sort(key=lambda m: m.message_id)
 
         return messages
+
+    async def delete_media_group(self, media_group_id: str):
+        await self._connection.execute(
+            "DEL",
+            self._get_media_group_handled_key(media_group_id),
+            self._get_media_group_messages_key(media_group_id),
+        )

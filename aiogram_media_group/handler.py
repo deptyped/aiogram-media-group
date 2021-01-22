@@ -39,9 +39,10 @@ async def _on_media_group_received(
     *args,
     **kwargs,
 ):
-    return await callback(
-        await storage.get_media_group_messages(media_group_id), *args, **kwargs
-    )
+    messages = await storage.get_media_group_messages(media_group_id)
+    await storage.delete_media_group(media_group_id)
+
+    return await callback(messages, *args, **kwargs)
 
 
 def media_group_handler(

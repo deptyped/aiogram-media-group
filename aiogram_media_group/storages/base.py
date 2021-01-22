@@ -20,3 +20,7 @@ class BaseStorage(ABC):
         self, media_group_id: str
     ) -> List[types.Message]:
         pass
+
+    @abstractmethod
+    async def delete_media_group(self, media_group_id: str):
+        pass

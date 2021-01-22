@@ -27,3 +27,6 @@ class MemoryStorage(BaseStorage):
         self, media_group_id: str
     ) -> List[types.Message]:
         return self._data[self._prefix][media_group_id]
+
+    async def delete_media_group(self, media_group_id: str):
+        self._data[self._prefix].pop(media_group_id, None)
