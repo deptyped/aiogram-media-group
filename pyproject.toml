@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiogram-media-group"
-version = "0.1.0"
+version = "0.2.0"
 description = "AIOGram handler for media groups (also known as albums)"
 authors = ["deptyped <deptyped@gmail.com>"]
 readme = "README.md"
