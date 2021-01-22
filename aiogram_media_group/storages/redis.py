@@ -1,4 +1,3 @@
-import json
 from typing import List
 from typing import TYPE_CHECKING
 
@@ -8,6 +7,11 @@ from aiogram_media_group.storages.base import BaseStorage
 
 if TYPE_CHECKING:
     import aioredis
+
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 
 class RedisStorage(BaseStorage):
@@ -38,7 +42,7 @@ class RedisStorage(BaseStorage):
         length = await self._connection.execute(
             "LPUSH",
             self._get_media_group_messages_key(media_group_id),
-            message.as_json(),
+            json.dumps(message.to_python()),
         )
 
         if length == 1:
