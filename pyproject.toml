@@ -10,11 +10,11 @@ repository = "https://github.com/deptyped/aiogram-media-group"
 
 [tool.poetry.dependencies]
 python = "^3.7"
-aiogram = "^2.11.2"
+aiogram = ">2 || >3"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^20.8b1", extras = ["d"]}
-aioredis = "^1.3.1"
+aioredis = "^2"
 
 [build-system]
 requires = ["poetry>=0.12"]
