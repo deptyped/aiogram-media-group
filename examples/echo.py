@@ -2,16 +2,17 @@ from typing import List
 
 from aiogram import Dispatcher, Bot, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher.filters import MediaGroupFilter
 from aiogram.types import ContentType
 from aiogram.utils import executor
 
-from aiogram_media_group import MediaGroupFilter, media_group_handler
+from aiogram_media_group import media_group_handler
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 
-@dp.message_handler(MediaGroupFilter(), content_types=ContentType.PHOTO)
+@dp.message_handler(MediaGroupFilter(is_media_group=True), content_types=ContentType.PHOTO)
 @media_group_handler
 async def album_handler(messages: List[types.Message]):
     await messages[-1].reply_media_group(
