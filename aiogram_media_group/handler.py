@@ -1,32 +1,38 @@
 import asyncio
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import Callable, Optional
 
 from aiogram import types, Dispatcher
+
+from aiogram.dispatcher.storage import BaseStorage as AiogramBaseStorage
 from aiogram.contrib.fsm_storage.memory import MemoryStorage as AiogramMemoryStorage
-from aiogram.contrib.fsm_storage.redis import (
-    RedisStorage as AiogramRedisStorage,
-    RedisStorage2 as AiogramRedis2Storage,
-)
-from aiogram.dispatcher import FSMContext
 
-from aiogram_media_group.storages.base import BaseStorage
 from aiogram_media_group.storages.memory import MemoryStorage
-from aiogram_media_group.storages.redis import RedisStorage
+from aiogram_media_group.storages.base import BaseStorage
 
-if TYPE_CHECKING:
+try:
     import aioredis
 
+    from aiogram.contrib.fsm_storage.redis import (
+        RedisStorage as AiogramRedisStorage,
+        RedisStorage2 as AiogramRedis2Storage,
+    )
 
-async def _get_storage_from_state(state: FSMContext, prefix, ttl):
-    storage_type = type(state.storage)
+    from aiogram_media_group.storages.redis import RedisStorage
+except ModuleNotFoundError:
+    # ignore if aioredis is not installed
+    pass
+
+
+async def _wrap_storage(storage: AiogramBaseStorage, prefix, ttl):
+    storage_type = type(storage)
     if storage_type is AiogramMemoryStorage:
-        return MemoryStorage(data=state.storage.data, prefix=prefix)
+        return MemoryStorage(data=storage.data, prefix=prefix)
     elif storage_type is AiogramRedisStorage:
-        connection: aioredis.RedisConnection = await state.storage.redis()
+        connection: aioredis.RedisConnection = await storage.redis()
         return RedisStorage(connection=connection, prefix=prefix, ttl=ttl)
     elif storage_type is AiogramRedis2Storage:
-        redis: aioredis.Redis = await state.storage.redis()
+        redis: aioredis.Redis = await storage.redis()
         return RedisStorage(connection=redis.connection, prefix=prefix, ttl=ttl)
     else:
         raise ValueError(f"{storage_type} is unsupported storage")
@@ -47,6 +53,7 @@ async def _on_media_group_received(
 
 def media_group_handler(
     func: Optional[Callable] = None,
+    only_album: bool = True,
     receive_timeout: float = 1.0,
     storage_prefix: str = "media-group",
     loop=None,
@@ -55,25 +62,23 @@ def media_group_handler(
     def decorator(handler):
         @wraps(handler)
         async def wrapper(message: types.Message, *args, **kwargs):
-            if message.media_group_id is None:
+            if only_album and message.media_group_id is None:
                 raise ValueError("Not a media group message")
+            elif message.media_group_id is None:
+                return await handler([message], *args, **kwargs)
 
-            if loop is None:
-                event_loop = asyncio.get_event_loop()
-            else:
-                event_loop = loop
+            event_loop = asyncio.get_running_loop() if loop is None else loop
 
-            if storage_driver is not None:
-                storage = storage_driver
-            else:
-                ttl = int(receive_timeout * 2)
-                if ttl < 1:
-                    ttl = 1
+            ttl = int(receive_timeout * 2)
+            if ttl < 1:
+                ttl = 1
 
-                state = Dispatcher.get_current().current_state()
-                storage = await _get_storage_from_state(
-                    state, prefix=storage_prefix, ttl=ttl
+            if storage_driver is None:
+                storage = await _wrap_storage(
+                    Dispatcher.get_current().storage, prefix=storage_prefix, ttl=ttl
                 )
+            else:
+                storage = storage_driver
 
             if await storage.set_media_group_as_handled(message.media_group_id):
                 event_loop.call_later(
