@@ -1,11 +1,11 @@
 # aiogram-media-group
 
-AIOGram handler for media groups (also known as albums)
+aiogram handler for media groups (also known as albums)
 
 ### Features
 
-- Memory and Redis storage drivers supported
-- Ready to work with multiple bot instances
+- aiogram 3 support
+- Redis storage driver is supported and ready to work with multiple bot instances (aiogram 2 only)
 
 ### Install
 

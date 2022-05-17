@@ -2,40 +2,57 @@ import asyncio
 from functools import wraps
 from typing import Callable, Optional
 
-from aiogram import types, Dispatcher
+from aiogram import types, Bot, Dispatcher
 
-from aiogram.dispatcher.storage import BaseStorage as AiogramBaseStorage
-from aiogram.contrib.fsm_storage.memory import MemoryStorage as AiogramMemoryStorage
-
+from aiogram_media_group import AIOGRAM_VERSION
 from aiogram_media_group.storages.memory import MemoryStorage
 from aiogram_media_group.storages.base import BaseStorage
 
-try:
-    import aioredis
+if AIOGRAM_VERSION == 3:
+    # from aiogram.dispatcher.fsm.storage.base import BaseStorage as AiogramBaseStorage
+    # from aiogram.dispatcher.fsm.storage.memory import MemoryStorage as AiogramMemoryStorage
+    # try:
+    #     import aioredis
 
-    from aiogram.contrib.fsm_storage.redis import (
-        RedisStorage as AiogramRedisStorage,
-        RedisStorage2 as AiogramRedis2Storage,
-    )
+    #     from aiogram.dispatcher.fsm.storage.redis import RedisStorage as AiogramRedisStorage
 
-    from aiogram_media_group.storages.redis import RedisStorage
-except ModuleNotFoundError:
-    # ignore if aioredis is not installed
-    pass
+    #     from aiogram_media_group.storages.redis import RedisStorage
+    # except ModuleNotFoundError:
+    #     # ignore if aioredis is not installed
+    #     pass
+
+    STORAGE = {}
+
+elif AIOGRAM_VERSION == 2:
+    from aiogram.dispatcher import FSMContext
+    from aiogram.dispatcher.storage import BaseStorage as AiogramBaseStorage
+    from aiogram.contrib.fsm_storage.memory import MemoryStorage as AiogramMemoryStorage
+    try:
+        import aioredis
+
+        from aiogram.contrib.fsm_storage.redis import (
+            RedisStorage as AiogramRedisStorage,
+            RedisStorage2 as AiogramRedis2Storage,
+        )
+
+        from aiogram_media_group.storages.redis import RedisStorage
+    except ModuleNotFoundError:
+        # ignore if aioredis is not installed
+        pass
 
 
-async def _wrap_storage(storage: AiogramBaseStorage, prefix, ttl):
-    storage_type = type(storage)
-    if storage_type is AiogramMemoryStorage:
-        return MemoryStorage(data=storage.data, prefix=prefix)
-    elif storage_type is AiogramRedisStorage:
-        connection: aioredis.RedisConnection = await storage.redis()
-        return RedisStorage(connection=connection, prefix=prefix, ttl=ttl)
-    elif storage_type is AiogramRedis2Storage:
-        redis: aioredis.Redis = await storage.redis()
-        return RedisStorage(connection=redis.connection, prefix=prefix, ttl=ttl)
-    else:
-        raise ValueError(f"{storage_type} is unsupported storage")
+    async def _wrap_storage(storage: AiogramBaseStorage, prefix, ttl):
+        storage_type = type(storage)
+        if storage_type is AiogramMemoryStorage:
+            return MemoryStorage(data=storage.data, prefix=prefix)
+        elif storage_type is AiogramRedisStorage:
+            connection: aioredis.RedisConnection = await storage.redis()
+            return RedisStorage(connection=connection, prefix=prefix, ttl=ttl)
+        elif storage_type is AiogramRedis2Storage:
+            redis: aioredis.Redis = await storage.redis()
+            return RedisStorage(connection=redis.connection, prefix=prefix, ttl=ttl)
+        else:
+            raise ValueError(f"{storage_type} is unsupported storage")
 
 
 async def _on_media_group_received(
@@ -56,12 +73,12 @@ def media_group_handler(
     only_album: bool = True,
     receive_timeout: float = 1.0,
     storage_prefix: str = "media-group",
-    loop=None,
-    storage_driver: Optional[BaseStorage] = None,
+    loop=None
 ):
     def decorator(handler):
         @wraps(handler)
         async def wrapper(message: types.Message, *args, **kwargs):
+
             if only_album and message.media_group_id is None:
                 raise ValueError("Not a media group message")
             elif message.media_group_id is None:
@@ -73,12 +90,12 @@ def media_group_handler(
             if ttl < 1:
                 ttl = 1
 
-            if storage_driver is None:
+            if AIOGRAM_VERSION == 3:
+                storage = MemoryStorage(STORAGE, prefix='')
+            elif AIOGRAM_VERSION == 2:
                 storage = await _wrap_storage(
                     Dispatcher.get_current().storage, prefix=storage_prefix, ttl=ttl
                 )
-            else:
-                storage = storage_driver
 
             if await storage.set_media_group_as_handled(message.media_group_id):
                 event_loop.call_later(
