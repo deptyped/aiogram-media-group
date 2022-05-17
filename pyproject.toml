@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "aiogram-media-group"
-version = "0.2.0"
-description = "AIOGram handler for media groups (also known as albums)"
+version = "0.4.0"
+description = "Aiogram handler for media groups (also known as albums)"
 authors = ["deptyped <deptyped@gmail.com>"]
 readme = "README.md"
 license = "MIT"
