@@ -1,4 +1,4 @@
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from aiogram import __version__ as AIOGRAM_VERSION
 
