@@ -40,9 +40,9 @@ class MongoStorage(BaseStorage):
                 return await self._collection.insert_one({"_id": media_group_id, "messages": []})
         except:
             # ignore multiple calls to mongo at the same time
-            pass
+            return False
         finally:
-            return True
+            return False
 
     async def append_message_to_media_group(self, media_group_id: str, message: types.Message):
         await self._collection.update_one({"_id": media_group_id}, {"$push": {"messages": json.dumps(message.to_python())}})

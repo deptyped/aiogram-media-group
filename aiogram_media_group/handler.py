@@ -36,7 +36,7 @@ elif AIOGRAM_VERSION == 2:
 
         from aiogram.contrib.fsm_storage.mongo import MongoStorage as AiogramMongoStorage
 
-        from .storages.mongo import MongoStorage
+        from aiogram_media_group.storages.mongo import MongoStorage
     except ModuleNotFoundError:
         # ignore if motor is not installed
         pass
@@ -83,47 +83,17 @@ elif AIOGRAM_VERSION == 2:
             raise ValueError(f"{storage_type} is unsupported storage")
 
 
-# to avoid errors and multiple calls to the same function
-handled_media_groups = []
-EXECUTING_CALLBACK = False
-
-
 async def _on_media_group_received(
     media_group_id: str,
     storage: BaseStorage,
     callback,
-    event_loop,
-    unhandle_timeout: float,
     *args,
     **kwargs,
 ):
-    global EXECUTING_CALLBACK
+    messages = await storage.get_media_group_messages(media_group_id)
+    await storage.delete_media_group(media_group_id)
 
-    while EXECUTING_CALLBACK:
-        await asyncio.sleep(0)
-    else:
-        EXECUTING_CALLBACK = True
-    
-    if not media_group_id in handled_media_groups:
-        handled_media_groups.append(media_group_id)
-        EXECUTING_CALLBACK = False
-
-        messages = await storage.get_media_group_messages(media_group_id)
-        await storage.delete_media_group(media_group_id)
-
-        event_loop.call_later(
-            unhandle_timeout,
-            asyncio.create_task,
-            unhandle_media_group(media_group_id),
-        )
-
-        return await callback(messages, *args, **kwargs)
-        
-    EXECUTING_CALLBACK = False
-
-
-async def unhandle_media_group(media_group_id: str):
-    handled_media_groups.remove(media_group_id)
+    return await callback(messages, *args, **kwargs)
 
 
 def media_group_handler(
@@ -160,7 +130,7 @@ def media_group_handler(
                     receive_timeout,
                     asyncio.create_task,
                     _on_media_group_received(
-                        message.media_group_id, storage, handler, event_loop, 2.0, *args, **kwargs
+                        message.media_group_id, storage, handler, *args, **kwargs
                     ),
                 )
 
