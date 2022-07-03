@@ -17,31 +17,27 @@ except ImportError:
 
 # ignore multiple calls to mongo at the same time
 # this is done to ensure that the condition checks are reliable
-BUSY = False
+locks = {}
 
 
 class MongoStorage(BaseStorage):
     @classmethod
-    async def init(cls, db: "motor_asyncio.AsyncIOMotorDatabase") -> "MongoStorage":
+    async def init(cls, db: "motor_asyncio.AsyncIOMotorDatabase", media_group_id: str) -> "MongoStorage":
         '''
         Gets aiogram_fsm database, in which creates aiogram_media_group collection
 
         '''
-        global BUSY
-
-        while BUSY:
-            await asyncio.sleep(0)
-        else:
-            BUSY = True
+        if not media_group_id in locks:
+            locks[media_group_id] = asyncio.Lock()
         
         self = MongoStorage()
         
-        if not "aiogram_media_group" in await db.list_collection_names():
-            await db.create_collection("aiogram_media_group")
+        async with locks[media_group_id]:
+            if not "aiogram_media_group" in await db.list_collection_names():
+                await db.create_collection("aiogram_media_group")
         
         self._collection = db.aiogram_media_group
 
-        BUSY = False
         return self
 
     async def set_media_group_as_handled(self, media_group_id: str) -> bool:
@@ -49,19 +45,11 @@ class MongoStorage(BaseStorage):
         Inserts a new document into the aiogram_media_group collection associated with the media_group_id
 
         '''
-        global BUSY
+        async with locks[media_group_id]:
+            if await self._collection.find_one({"_id": media_group_id}) is None:
+                await self._collection.insert_one({"_id": media_group_id, "messages": []})
+                return True
         
-        while BUSY:
-            await asyncio.sleep(0)
-        else:
-            BUSY = True
-        
-        if await self._collection.find_one({"_id": media_group_id}) is None:
-            await self._collection.insert_one({"_id": media_group_id, "messages": []})
-            BUSY = False
-            return True
-        
-        BUSY = False
         return False
 
     async def append_message_to_media_group(self, media_group_id: str, message: types.Message):
@@ -76,4 +64,5 @@ class MongoStorage(BaseStorage):
         return messages
 
     async def delete_media_group(self, media_group_id: str):
+        locks.pop(media_group_id)
         await self._collection.delete_one({"_id": media_group_id})
