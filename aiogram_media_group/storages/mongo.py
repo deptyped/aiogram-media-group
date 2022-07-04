@@ -1,6 +1,8 @@
 import asyncio
+import datetime
 
 from typing import List
+from typing import Literal
 from typing import TYPE_CHECKING
 
 from aiogram import types
@@ -10,50 +12,70 @@ from aiogram_media_group.storages.base import BaseStorage
 if TYPE_CHECKING:
     from motor import motor_asyncio
 
+from pymongo import errors
+
 try:
     import ujson as json
 except ImportError:
     import json
 
-# ignore multiple calls to mongo at the same time
-# this is done to ensure that the condition checks are reliable
-locks = {}
+Documents = Literal["MediaGroup", "Message"]
 
 
 class MongoStorage(BaseStorage):
-    @classmethod
-    async def init(cls, db: "motor_asyncio.AsyncIOMotorDatabase", media_group_id: str) -> "MongoStorage":
-        '''
-        Gets aiogram_fsm database, in which creates aiogram_media_group collection
+    def __init__(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str, ttl: int, media_group_id: str) -> "MongoStorage":
+        self._ttl = ttl
+        self._collection = db[prefix]
+        self._media_group_id = media_group_id
 
-        '''
-        if not media_group_id in locks:
-            locks[media_group_id] = asyncio.Lock()
-        
-        self = MongoStorage()
-        
-        async with locks[media_group_id]:
-            if not "aiogram_media_group" in await db.list_collection_names():
-                await db.create_collection("aiogram_media_group")
-        
-        self._collection = db.aiogram_media_group
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self._create_collection(db, prefix))
+    
+    async def _list_index_names(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str):
+        names = []
 
-        return self
+        async for index in db[prefix].list_indexes():
+            index = json.loads(json.dumps(index, default=lambda item: getattr(item, "__dict__", str(item))))
+            names.append(index["name"])
+            if "expireAt" in index["key"]:
+                self._ttl = index["expireAfterSeconds"]
+        
+        return names
+
+    async def _create_collection(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str, ttl: int):
+        try:
+            if not prefix in await db.list_collection_names():
+                await db.create_collection(prefix)
+            
+            if not "expireAt" in await self._list_index_names(db, prefix):
+                await db[prefix].create_index("expireAt", expireAfterSeconds=ttl)
+            
+            elif ttl != self._ttl:
+                self._ttl = ttl
+                await db.command("collMod", prefix, index={ "keyPattern": { "expireAt": 1 }, "expireAfterSeconds": ttl })
+
+        except errors.CollectionInvalid:
+            pass
+
+    async def _create_document(self, id: str, documentType: Documents) -> bool:
+        try:
+            if await self._collection.find_one({"_id": id}) is None:
+                if documentType == "Message":
+                    await self._collection.insert_one({ "_id": id, "expireAt": datetime.datetime.utcnow() })
+                elif documentType == "MediaGroup":
+                    await self._collection.insert_one({ "_id": id, "messages": [] })
+                return True
+        except errors.DuplicateKeyError:
+            return False
+        else:
+            return False
 
     async def set_media_group_as_handled(self, media_group_id: str) -> bool:
-        '''
-        Inserts a new document into the aiogram_media_group collection associated with the media_group_id
-
-        '''
-        async with locks[media_group_id]:
-            if await self._collection.find_one({"_id": media_group_id}) is None:
-                await self._collection.insert_one({"_id": media_group_id, "messages": []})
-                return True
-        
-        return False
+        return await self._create_document(media_group_id, "MediaGroup")
 
     async def append_message_to_media_group(self, media_group_id: str, message: types.Message):
-        await self._collection.update_one({"_id": media_group_id}, {"$push": {"messages": json.dumps(message.to_python())}})
+        if await self._create_document(f"{media_group_id}{message.message_id}", "Message"):
+            await self._collection.update_one({"_id": media_group_id}, {"$push": {"messages": json.dumps(message.to_python())}})
 
     async def get_media_group_messages(self, media_group_id: str) -> List[types.Message]:
         raw_messages = (await self._collection.find_one({"_id": media_group_id}))["messages"]
@@ -64,5 +86,4 @@ class MongoStorage(BaseStorage):
         return messages
 
     async def delete_media_group(self, media_group_id: str):
-        locks.pop(media_group_id)
         await self._collection.delete_one({"_id": media_group_id})
