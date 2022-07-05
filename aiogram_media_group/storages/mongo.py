@@ -12,7 +12,7 @@ from aiogram_media_group.storages.base import BaseStorage
 if TYPE_CHECKING:
     from motor import motor_asyncio
 
-from pymongo import errors
+from pymongo.errors import OperationFailure, DuplicateKeyError
 
 try:
     import ujson as json
@@ -26,18 +26,29 @@ class MongoStorage(BaseStorage):
     def __init__(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str, ttl: int):
         self._ttl = ttl
         self._collection = db[prefix]
-
+        
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self._create_collection(db, prefix))
+        
+        #  This happens when MongoDB driver is used as storage_driver argument
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(self._create_collection(db, prefix, ttl))
+            loop.close()
+        else:
+            loop.create_task(self._create_collection(db, prefix, ttl))
     
     async def _list_index_names(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str) -> List[str]:
         names = []
 
         async for index in db[prefix].list_indexes():
             index = json.loads(json.dumps(index, default=lambda item: getattr(item, "__dict__", str(item))))
-            names.append(index["name"])
-            if "expireAt" in index["key"]:
+            name = list(index["key"].keys())[0]
+
+            if name == "expireAt":
                 self._ttl = index["expireAfterSeconds"]
+
+            names.append(name)
+            await asyncio.sleep(0)
         
         return names
 
@@ -53,7 +64,7 @@ class MongoStorage(BaseStorage):
                 self._ttl = ttl
                 await db.command("collMod", prefix, index={ "keyPattern": { "expireAt": 1 }, "expireAfterSeconds": ttl })
 
-        except errors.CollectionInvalid:
+        except OperationFailure:
             pass
 
     async def _create_document(self, id: str, documentType: Documents) -> bool:
@@ -64,7 +75,7 @@ class MongoStorage(BaseStorage):
                 elif documentType == "MediaGroup":
                     await self._collection.insert_one({ "_id": id, "messages": [] })
                 return True
-        except errors.DuplicateKeyError:
+        except DuplicateKeyError:
             return False
         else:
             return False

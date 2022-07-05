@@ -126,7 +126,7 @@ def media_group_handler(
                     storage = MemoryStorage(STORAGE, prefix='')
                 elif AIOGRAM_VERSION == 2:
                     storage = await _wrap_storage(
-                        Dispatcher.get_current().storage, prefix=storage_prefix, ttl=ttl
+                        Dispatcher.get_current().storage, storage_prefix, ttl
                     )
 
             if await storage.set_media_group_as_handled(message.media_group_id):
