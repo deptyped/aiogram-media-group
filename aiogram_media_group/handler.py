@@ -72,7 +72,8 @@ def media_group_handler(
     func: Optional[Callable] = None,
     only_album: bool = True,
     receive_timeout: float = 1.0,
-    storage_prefix: str = "media-group",
+    storage_prefix: str = "aiogram_media_group",
+    storage_driver: BaseStorage=None,
     loop=None
 ):
     def decorator(handler):
@@ -89,13 +90,16 @@ def media_group_handler(
             ttl = int(receive_timeout * 2)
             if ttl < 1:
                 ttl = 1
-
-            if AIOGRAM_VERSION == 3:
-                storage = MemoryStorage(STORAGE, prefix='')
-            elif AIOGRAM_VERSION == 2:
-                storage = await _wrap_storage(
-                    Dispatcher.get_current().storage, prefix=storage_prefix, ttl=ttl
-                )
+            
+            if storage_driver:
+                storage = storage_driver
+            else:
+                if AIOGRAM_VERSION == 3:
+                    storage = MemoryStorage(STORAGE, prefix='')
+                elif AIOGRAM_VERSION == 2:
+                    storage = await _wrap_storage(
+                        Dispatcher.get_current().storage, prefix=storage_prefix, ttl=ttl
+                    )
 
             if await storage.set_media_group_as_handled(message.media_group_id):
                 event_loop.call_later(
