@@ -23,15 +23,14 @@ Documents = Literal["MediaGroup", "Message"]
 
 
 class MongoStorage(BaseStorage):
-    def __init__(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str, ttl: int, media_group_id: str) -> "MongoStorage":
+    def __init__(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str, ttl: int):
         self._ttl = ttl
         self._collection = db[prefix]
-        self._media_group_id = media_group_id
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self._create_collection(db, prefix))
     
-    async def _list_index_names(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str):
+    async def _list_index_names(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str) -> List[str]:
         names = []
 
         async for index in db[prefix].list_indexes():

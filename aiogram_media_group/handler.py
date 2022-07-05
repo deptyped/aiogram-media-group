@@ -60,7 +60,7 @@ elif AIOGRAM_VERSION == 2:
         REDIS_INSTALLED = True
 
 
-    async def _wrap_storage(storage: AiogramBaseStorage, prefix: str, ttl: float, media_group_id: int):
+    async def _wrap_storage(storage: AiogramBaseStorage, prefix: str, ttl: int):
         storage_type = type(storage)
         
         if storage_type is AiogramMemoryStorage:
@@ -69,7 +69,7 @@ elif AIOGRAM_VERSION == 2:
         elif MONGO_INSTALLED:
             if storage_type is AiogramMongoStorage:
                 mongo: motor_asyncio.AsyncIOMotorDatabase = await storage.get_db()
-                return await MongoStorage.init(db=mongo, media_group_id=media_group_id)
+                return MongoStorage(db=mongo, prefix=prefix, ttl=ttl)
         
         elif REDIS_INSTALLED:
             if storage_type is AiogramRedisStorage:
@@ -122,7 +122,7 @@ def media_group_handler(
                 storage = MemoryStorage(STORAGE, prefix='')
             elif AIOGRAM_VERSION == 2:
                 storage = await _wrap_storage(
-                    Dispatcher.get_current().storage, storage_prefix, ttl, message.media_group_id
+                    Dispatcher.get_current().storage, storage_prefix, ttl
                 )
 
             if await storage.set_media_group_as_handled(message.media_group_id):
