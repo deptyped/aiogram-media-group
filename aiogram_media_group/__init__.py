@@ -14,3 +14,4 @@ elif AIOGRAM_VERSION == 2:
     MediaGroupFilter = lambda: AiogramMediaGroupFilter(is_media_group=True)
 
 from .handler import media_group_handler
+from . import storages

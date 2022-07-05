@@ -36,21 +36,6 @@ class MongoStorage(BaseStorage):
             loop.close()
         else:
             loop.create_task(self._create_collection(db, prefix, ttl))
-    
-    async def _list_index_names(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str) -> List[str]:
-        names = []
-
-        async for index in db[prefix].list_indexes():
-            index = json.loads(json.dumps(index, default=lambda item: getattr(item, "__dict__", str(item))))
-            name = list(index["key"].keys())[0]
-
-            if name == "expireAt":
-                self._ttl = index["expireAfterSeconds"]
-
-            names.append(name)
-            await asyncio.sleep(0)
-        
-        return names
 
     async def _create_collection(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str, ttl: int):
         try:
@@ -66,6 +51,21 @@ class MongoStorage(BaseStorage):
 
         except OperationFailure:
             pass
+    
+    async def _list_index_names(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str) -> List[str]:
+        names = []
+
+        async for index in db[prefix].list_indexes():
+            index = json.loads(json.dumps(index, default=lambda item: getattr(item, "__dict__", str(item))))
+            name = list(index["key"].keys())[0]
+
+            if name == "expireAt":
+                self._ttl = index["expireAfterSeconds"]
+
+            names.append(name)
+            await asyncio.sleep(0)
+        
+        return names
 
     async def _create_document(self, id: str, documentType: Documents) -> bool:
         try:
