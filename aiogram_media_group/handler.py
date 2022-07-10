@@ -4,11 +4,14 @@ from typing import Callable, Optional
 
 from aiogram import types, Bot, Dispatcher
 
-from aiogram_media_group import AIOGRAM_VERSION
-from aiogram_media_group.storages.memory import MemoryStorage
-from aiogram_media_group.storages.base import BaseStorage
+from . import AIOGRAM_VERSION
+from .storages.memory import MemoryStorage
+from .storages.base import BaseStorage
 
 if AIOGRAM_VERSION == 3:
+    # Currently for aiogram3 MemoryStorage is used, because this version is still in development
+    # It breaks backward compatibility by introducing new breaking changes
+
     # from aiogram.dispatcher.fsm.storage.base import BaseStorage as AiogramBaseStorage
     # from aiogram.dispatcher.fsm.storage.memory import MemoryStorage as AiogramMemoryStorage
     # try:
@@ -16,7 +19,7 @@ if AIOGRAM_VERSION == 3:
 
     #     from aiogram.dispatcher.fsm.storage.redis import RedisStorage as AiogramRedisStorage
 
-    #     from aiogram_media_group.storages.redis import RedisStorage
+    #     from .storages.redis import RedisStorage
     # except ModuleNotFoundError:
     #     # ignore if aioredis is not installed
     #     pass
@@ -36,7 +39,7 @@ elif AIOGRAM_VERSION == 2:
 
         from aiogram.contrib.fsm_storage.mongo import MongoStorage as AiogramMongoStorage
 
-        from aiogram_media_group.storages.mongo import MongoStorage
+        from .storages.mongo import MongoStorage
     except ModuleNotFoundError:
         # ignore if motor is not installed
         pass
@@ -52,7 +55,7 @@ elif AIOGRAM_VERSION == 2:
             RedisStorage2 as AiogramRedis2Storage,
         )
 
-        from aiogram_media_group.storages.redis import RedisStorage
+        from .storages.redis import RedisStorage
     except ModuleNotFoundError:
         # ignore if aioredis is not installed
         pass

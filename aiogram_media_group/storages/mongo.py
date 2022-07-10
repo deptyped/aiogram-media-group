@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from aiogram import types
 
-from aiogram_media_group.storages.base import BaseStorage
+from .base import BaseStorage
 
 if TYPE_CHECKING:
     from motor import motor_asyncio
@@ -63,7 +63,6 @@ class MongoStorage(BaseStorage):
                 self._ttl = index["expireAfterSeconds"]
 
             names.append(name)
-            await asyncio.sleep(0)
         
         return names
 
@@ -85,10 +84,10 @@ class MongoStorage(BaseStorage):
 
     async def append_message_to_media_group(self, media_group_id: str, message: types.Message):
         if await self._create_document(f"{media_group_id}{message.message_id}", "Message"):
-            await self._collection.update_one({"_id": media_group_id}, {"$push": {"messages": json.dumps(message.to_python())}})
+            await self._collection.update_one({ "_id": media_group_id }, { "$push": { "messages": json.dumps(message.to_python()) }})
 
     async def get_media_group_messages(self, media_group_id: str) -> List[types.Message]:
-        raw_messages = (await self._collection.find_one({"_id": media_group_id}))["messages"]
+        raw_messages = (await self._collection.find_one({ "_id": media_group_id }))["messages"]
         
         messages = [types.Message(**json.loads(m)) for m in raw_messages]
         messages.sort(key=lambda m: m.message_id)
@@ -96,4 +95,4 @@ class MongoStorage(BaseStorage):
         return messages
 
     async def delete_media_group(self, media_group_id: str):
-        await self._collection.delete_one({"_id": media_group_id})
+        await self._collection.delete_one({ "_id": media_group_id })
