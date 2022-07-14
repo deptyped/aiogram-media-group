@@ -39,10 +39,10 @@ class MongoStorage(BaseStorage):
 
     async def _create_collection(self, db: "motor_asyncio.AsyncIOMotorDatabase", prefix: str, ttl: int):
         try:
-            if not prefix in await db.list_collection_names():
+            if prefix not in await db.list_collection_names():
                 await db.create_collection(prefix)
             
-            if not "expireAt" in await self._list_index_names(db, prefix):
+            if "expireAt" not in await self._list_index_names(db, prefix):
                 await db[prefix].create_index("expireAt", expireAfterSeconds=ttl)
             
             elif ttl != self._ttl:
