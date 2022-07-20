@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from aiogram import types
 
-from aiogram_media_group.storages.base import BaseStorage
+from .base import BaseStorage
 
 if TYPE_CHECKING:
     import aioredis

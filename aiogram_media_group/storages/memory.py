@@ -2,7 +2,7 @@ from typing import List, Dict
 
 from aiogram import types
 
-from aiogram_media_group.storages.base import BaseStorage
+from .base import BaseStorage
 
 
 class MemoryStorage(BaseStorage):
