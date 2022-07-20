@@ -11,7 +11,7 @@ from .storages.base import BaseStorage
 if AIOGRAM_VERSION == 3:
     # Currently for aiogram3 MemoryStorage is used, because this version is still in development
     # It breaks backward compatibility by introducing new breaking changes
-    
+
     # from aiogram.dispatcher.fsm.storage.base import BaseStorage as AiogramBaseStorage
     # from aiogram.dispatcher.fsm.storage.memory import MemoryStorage as AiogramMemoryStorage
     # try:
@@ -30,6 +30,23 @@ elif AIOGRAM_VERSION == 2:
     from aiogram.dispatcher import FSMContext
     from aiogram.dispatcher.storage import BaseStorage as AiogramBaseStorage
     from aiogram.contrib.fsm_storage.memory import MemoryStorage as AiogramMemoryStorage
+
+    MONGO_INSTALLED = False
+    REDIS_INSTALLED = False
+
+    try:
+        from motor import motor_asyncio
+
+        from aiogram.contrib.fsm_storage.mongo import MongoStorage as AiogramMongoStorage
+
+        from .storages.mongo import MongoStorage
+    except ModuleNotFoundError:
+        # ignore if motor is not installed
+        pass
+    else:
+        MONGO_INSTALLED = True
+    
+
     try:
         import aioredis
 
@@ -42,18 +59,29 @@ elif AIOGRAM_VERSION == 2:
     except ModuleNotFoundError:
         # ignore if aioredis is not installed
         pass
+    else:
+        REDIS_INSTALLED = True
 
 
-    async def _wrap_storage(storage: AiogramBaseStorage, prefix, ttl):
+    async def _wrap_storage(storage: AiogramBaseStorage, prefix: str, ttl: int):
         storage_type = type(storage)
+        
         if storage_type is AiogramMemoryStorage:
             return MemoryStorage(data=storage.data, prefix=prefix)
-        elif storage_type is AiogramRedisStorage:
-            connection: aioredis.RedisConnection = await storage.redis()
-            return RedisStorage(connection=connection, prefix=prefix, ttl=ttl)
-        elif storage_type is AiogramRedis2Storage:
-            redis: aioredis.Redis = await storage.redis()
-            return RedisStorage(connection=redis.connection, prefix=prefix, ttl=ttl)
+        
+        elif MONGO_INSTALLED:
+            if storage_type is AiogramMongoStorage:
+                mongo: motor_asyncio.AsyncIOMotorDatabase = await storage.get_db()
+                return MongoStorage(db=mongo, prefix=prefix, ttl=ttl)
+        
+        elif REDIS_INSTALLED:
+            if storage_type is AiogramRedisStorage:
+                connection: aioredis.RedisConnection = await storage.redis()
+                return RedisStorage(connection=connection, prefix=prefix, ttl=ttl)
+            elif storage_type is AiogramRedis2Storage:
+                redis: aioredis.Redis = await storage.redis()
+                return RedisStorage(connection=redis.connection, prefix=prefix, ttl=ttl)
+        
         else:
             raise ValueError(f"{storage_type} is unsupported storage")
 
@@ -101,7 +129,7 @@ def media_group_handler(
                     storage = MemoryStorage(STORAGE, prefix='')
                 elif AIOGRAM_VERSION == 2:
                     storage = await _wrap_storage(
-                        Dispatcher.get_current().storage, prefix=storage_prefix, ttl=ttl
+                        Dispatcher.get_current().storage, storage_prefix, ttl
                     )
 
             if await storage.set_media_group_as_handled(message.media_group_id):
