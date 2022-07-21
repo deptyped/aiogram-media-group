@@ -2,10 +2,11 @@
 
 aiogram handler for media groups (also known as albums)
 
-### Features
+### Supported drivers
 
-- aiogram 3 support
-- Redis storage driver is supported and ready to work with multiple bot instances (aiogram 2 only)
+- [In-memory](aiogram_media_group/storages/memory.py)
+- [Redis](aiogram_media_group/storages/redis.py) (aiogram 2.x only)
+- [Mongo DB](aiogram_media_group/storages/mongo.py) (aiogram 2.x only)
 
 ### Install
 
