@@ -12,7 +12,10 @@ from .base import BaseStorage
 if TYPE_CHECKING:
     from motor import motor_asyncio
 
-from pymongo.errors import OperationFailure, DuplicateKeyError
+try:
+    from pymongo.errors import OperationFailure, DuplicateKeyError
+except ImportError:
+    pass
 
 try:
     import ujson as json
