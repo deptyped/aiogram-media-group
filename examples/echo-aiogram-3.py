@@ -1,17 +1,17 @@
+import sys
+import logging
 from typing import List
 
 from aiogram import Dispatcher, Bot, F, types
-from aiogram.dispatcher.fsm.context import FSMContext
-from aiogram.dispatcher.fsm.storage.memory import MemoryStorage
 from aiogram.types import ContentType
 
 from aiogram_media_group import media_group_handler
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+dp = Dispatcher()
 
 
-@dp.message(F.media_group_id, content_types=ContentType.PHOTO)
+@dp.message(F.media_group_id, F.content_type.in_({'photo'}))
 @media_group_handler
 async def album_handler(messages: List[types.Message]):
     await messages[-1].reply_media_group(
@@ -27,4 +27,5 @@ async def album_handler(messages: List[types.Message]):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     dp.run_polling(bot)

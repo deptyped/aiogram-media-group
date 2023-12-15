@@ -23,11 +23,10 @@ Minimal usage example:
 ```python
 from aiogram_media_group import media_group_handler
 
-@dp.message_handler(MediaGroupFilter(is_media_group=True), content_types=ContentType.PHOTO)
+@dp.message(F.media_group_id, F.content_type.in_({'photo'}))
 @media_group_handler
 async def album_handler(messages: List[types.Message]):
-    for message in messages:
-        print(message)
+    print(messages)
 ```
 
 Checkout [examples](https://github.com/deptyped/aiogram-media-group/blob/main/examples) for complete usage examples
